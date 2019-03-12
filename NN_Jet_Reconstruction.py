@@ -72,9 +72,9 @@ print("Negative training events: " + str(sum(y_train == 0)))
 print("Percent of positive class in the training set: {0}".format(sum(y_train == 1) / (sum(y_train == 1) + sum(y_train == 0))))
 
 #Hyper-parameters
-max_num_epochs = 10
+max_num_epochs = 30
 batch_size = 256
-learning_rate = 0.01
+learning_rate = 0.005
 num_batches = int(len(X_train) / batch_size)
 
 #Network Paramters
