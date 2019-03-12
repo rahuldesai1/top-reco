@@ -136,6 +136,7 @@ prediction = tf.cast(tf.argmax(probabilities, axis=1), tf.float32)
 actual = tf.cast(tf.argmax(y_tr, axis=1), tf.float32)
 accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, actual), tf.float32))
 
+
 #create the session
 sess = tf.InteractiveSession()
 sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
@@ -149,6 +150,7 @@ acc_decrease_threshold = 0.1
 
 while epoch < max_num_epochs:
     total_loss = 0
+    total_acc = 0
     for batch in range(num_batches):
         index = batch * batch_size
         last = index + batch_size
@@ -156,7 +158,8 @@ while epoch < max_num_epochs:
         X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
         _, batch_loss, acc = sess.run([optimizer, loss, accuracy], feed_dict={X_tr: X_batch, y_tr: y_batch})
         total_loss += batch_loss
-    print("Epoch {0} ==> Acc:{1}, Loss: {2}".format(epoch, acc, total_loss))
+        total_acc += acc
+    print("Epoch {0} ==> Acc: {1}, Loss: {2}".format(epoch, total_acc / num_batches, total_loss))
     #test validation accuracy every 10 epochs
     if epoch % 5 == 0 and epoch != 0:
         val_acc = sess.run([accuracy], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
