@@ -72,7 +72,7 @@ print("Negative training events: " + str(sum(y_train == 0)))
 print("Percent of positive class in the training set: {0}".format(sum(y_train == 1) / (sum(y_train == 1) + sum(y_train == 0))))
 
 #Hyper-parameters
-max_num_epochs = 30
+max_num_epochs = 10
 batch_size = 256
 learning_rate = 0.005
 num_batches = int(len(X_train) / batch_size)
@@ -135,7 +135,8 @@ probabilities = tf.nn.softmax(logits)
 prediction = tf.cast(tf.argmax(probabilities, axis=1), tf.float32)
 actual = tf.cast(tf.argmax(y_tr, axis=1), tf.float32)
 accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, actual), tf.float32))
-
+precision = tf.metrics.precision(labels=y_tr, predictions=predictions)
+recall = tf.metrics.recall(labels=y_tr, predictions=prediction)
 
 #create the session
 sess = tf.InteractiveSession()
@@ -151,19 +152,21 @@ acc_decrease_threshold = 0.1
 while epoch < max_num_epochs:
     total_loss = 0
     total_acc = 0
+    total_prec = 0
     for batch in range(num_batches):
         index = batch * batch_size
         last = index + batch_size
         #training
         X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-        _, batch_loss, acc = sess.run([optimizer, loss, accuracy], feed_dict={X_tr: X_batch, y_tr: y_batch})
+        _, batch_loss, acc, prec = sess.run([optimizer, loss, accuracy, precision], feed_dict={X_tr: X_batch, y_tr: y_batch})
         total_loss += batch_loss
         total_acc += acc
-    print("Epoch {0} ==> Acc: {1}, Loss: {2}".format(epoch, total_acc / num_batches, total_loss))
+        total_prec += prec
+    print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/num_batches,  total_loss))
     #test validation accuracy every 10 epochs
     if epoch % 5 == 0 and epoch != 0:
-        val_acc = sess.run([accuracy], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
-        print("Val Accuracy: {0}".format(val_acc[0]))
+        val_acc, prec, recc = sess.run([accuracy, precision, recall], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
+        print("Val Accuracy: {0}, Precision: {1}, Recall: {2}".format(val_acc[0], prec, recc))
         
         #implement early stopping
         if (best_val_acc > (float(val_acc[0]) * (1 + acc_decrease_threshold))):
@@ -178,8 +181,8 @@ while epoch < max_num_epochs:
     epoch += 1;
 
 #test the model on test data that was take from result.csv 
-test_acc, predictions = sess.run([accuracy, prediction], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
-print("Test Accuracy: {0}".format(test_acc))
+test_acc, predictions, prec, recc = sess.run([accuracy, prediction, precision, recall], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
+print("Test Accuracy: {0}, Precision: {1}, Recall: {2}".format(test_acc, prec, recc))
 
 
 #Print out the percent of values that were classified as tripets in the test set 
