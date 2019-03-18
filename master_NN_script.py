@@ -98,10 +98,18 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     precision = tf.metrics.precision(labels=actual, predictions=prediction)
     recall = tf.metrics.recall(labels=actual, predictions=prediction)
 
+    #add values to tensorboard
+    tf.summary.scalar(accuracy)
+    tf.summary.scalar(precision)
+    tf.summary.scalar(recall)
+    tf.summary.scalar(loss)
+
+    summary_op = tf.summary.merge_all()
     #create the session
     sess = tf.InteractiveSession()
     sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
     saver = tf.train.Saver()
+    writer = tf.summary.FileWriter('logs/train', graph=tf.get_default_graph())
 
     #run the model on the input data and calculate/print validation and training accuracy for each epoch
     epoch = 0
@@ -119,10 +127,11 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
 	        last = index + batch_size
 	        #training
 	        X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-	        _, batch_loss, acc, prec = sess.run([optimizer, loss, accuracy, precision], feed_dict={X_tr: X_batch, y_tr: y_batch})
+	        _, batch_loss, acc, prec, summ = sess.run([optimizer, loss, accuracy, precision, summary_op], feed_dict={X_tr: X_batch, y_tr: y_batch})
 	        total_loss += batch_loss
 	        total_acc += acc
 	        total_prec += prec[0]
+                writer.add_summary(summ, epoch*num_batches + batch)
         train_accuracy.append(total_acc / num_batches)
         print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
 	    #test validation accuracy every 10 epoch
