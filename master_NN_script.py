@@ -5,6 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Normalizer
 import keras
 import sys
+import os
 from multiprocessing import Pool
 
 # Use header to load my csv file with variable names
@@ -26,33 +27,9 @@ header += ['btag1', 'btag2', 'btag3'] #binary representation of likelihood of th
 #df = pd.read_csv('~/projects/top-reco-tests/samples/result.csv', names=header, delimiter=' ', skiprows=1)
 df = pd.read_csv('~/projects/top-reco-tests/samples/norm_results_0.1.csv', delimiter=',')
 
-#down-sample the class of non-jet samples to 1/4 of the original size (prevents model bias towards to majority class)
-#pos_class = df[df['label'] == 1]
-#neg_class = df[df['label'] == 0]
-#neg_class = neg_class.sample(frac=0.1)
-#neg_class.shape
-#final_df = pd.concat([neg_class, pos_class])
-
 #dataframe preprocessing
 y = df['label']
 X_norm = df.drop('label', axis=1).drop('Unnamed: 0', axis=1)
-
-#data normalization
-def normalize(col):
-    print(col.name)
-    threshold = col.quantile(0.9)
-    mini = col.min()
-    slopeUpper = (1 - 0.9) / (col.max() - threshold)
-    slopeLower = (0.6 - 0) / (threshold - mini)
-    def norm_helper(row):
-        if row > threshold:
-            return 0.9 + slopeUpper * (row - threshold)
-        else:
-            return 0 + slopeLower * (row - mini)
-    return col.apply(norm_helper)
-
-#normalize the data 
-#X_norm = X.apply(normalize, axis=0)
 
 print(X_norm.head())
 
@@ -169,20 +146,28 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
 
     #Print out the percent of values that were classified as tripets in the test set 
     print("Percent classified as a triplet: {0}".format(sum(predictions) / X_test.shape[0]))
-    print(sum(predictions))
 
     #save the model
-    save_path = saver.save(sess, "models/model{0}.ckpt".format(model_number))
+    try:
+        os.makedirs("searched_models/model{0}/".format(model_number))
+    except FileExistsError:
+        pass
+    save_path = saver.save(sess, "searched_models/model{0}/model{0}.ckpt".format(model_number))
     print("Model saved in path: %s" % save_path)
-
-    #saver.restore(sess, "models/model.ckpt")
-    #print("Model Restored")
 
     #close the current session and drop all saved variable values. --MAKE SURE TO SAVE FIRST--
     sess.close()
+    
     return (test_acc, prec)
 
+def extract(rows):
+	return True
+
 if __name__ == '__main__':
-    with Pool(32) as p:
-        output = p.starmap(run, [('test', 3, [64, 64, 32], 128, tf.train.AdamOptimizer, 0.001 , 0.4)])
-    print(output)
+    chunksize = 32
+    for chunk in pd.read_csv('~/projects/hyperparameters.csv', chunksize=chunksize):
+        #return the hyperparameters for each chunk as a list of tuples
+        hyperparams = extract(chunk)
+        with Pool(32) as p:
+            output = p.starmap(run, hyperparameters)
+        print(output)
