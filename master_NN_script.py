@@ -75,7 +75,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     assert number_layers == len(layer_nodes), "Length of layer_nodes does not match size of network."    
 
     #Hyper-parameters
-    max_num_epochs = 30
+    max_num_epochs = 3
     batch_size = input_batch_size
     learning_rate = input_learning_rate
     num_batches = int(len(X_train) / batch_size)
@@ -99,7 +99,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
 
     layer_1 = make_hidden(n_features, layer_nodes[0])
     layer_1 = tf.nn.relu(tf.matmul(X_tr, layer_1['weight']) + layer_1['bias']) 
-    layers[0] = tf.layers.dropout(layer1, dropout)
+    layers[0] = tf.layers.dropout(layer_1, dropout)
 
     for i in range(1, number_layers):
         hidden_layer = make_hidden(layer_nodes[i - 1], layer_nodes[i]) 
@@ -133,35 +133,34 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     acc_decrease_threshold = 0.1
 
     while epoch < max_num_epochs:
-	total_loss = 0
-	total_acc = 0
-	total_prec = 0
-	for batch in range(num_batches):
-	    index = batch * batch_size
-	    last = index + batch_size
-	    #training
-	    X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-	    _, batch_loss, acc, prec = sess.run([optimizer, loss, accuracy, precision], feed_dict={X_tr: X_batch, y_tr: y_batch})
-	    total_loss += batch_loss
-	    total_acc += acc
-	    total_prec += prec[0]
-	print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
-	#test validation accuracy every 10 epochs
-	if epoch % 2 == 0 and epoch != 0:
-	    val_acc, prec, recc = sess.run([accuracy, precision, recall], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
-	    print("Val Accuracy: {0}, Precision: {1}, Recall: {2}".format(float(val_acc), prec, recc))
+        total_loss = 0
+        total_acc = 0
+        total_prec = 0
+        for batch in range(num_batches):
+	        index = batch * batch_size
+	        last = index + batch_size
+	        #training
+	        X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
+	        _, batch_loss, acc, prec = sess.run([optimizer, loss, accuracy, precision], feed_dict={X_tr: X_batch, y_tr: y_batch})
+	        total_loss += batch_loss
+	        total_acc += acc
+	        total_prec += prec[0]
+        print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
+	    #test validation accuracy every 10 epoch
+        if epoch % 5 == 0 and epoch != 0:
+            val_acc, prec, recc = sess.run([accuracy, precision, recall], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
+            print("Val Accuracy: {0}, Precision: {1}, Recall: {2}".format(float(val_acc), prec, recc))
 	    
-	    #implement early stopping
-	    if (best_val_acc > (float(val_acc) * (1 + acc_decrease_threshold))):
-		if (acc_decreased):
-		    break
-		else:
-		    acc_decreased = True
-	    else:
-		best_val_acc = max(float(val_acc), best_val_acc)
-		acc_decreased = False
-	    
-	epoch += 1;
+	     #implement early stopping
+            if (best_val_acc > (float(val_acc) * (1 + acc_decrease_threshold))):
+                if (acc_decreased):
+                    break
+                else:
+                    acc_decreased = True
+            else:
+                best_val_acc = max(float(val_acc), best_val_acc)
+                acc_decreased = False
+        epoch += 1;
 
     #test the model on test data that was take from result.csv 
     test_acc, predictions, prec, recc = sess.run([accuracy, prediction, precision, recall], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
@@ -181,8 +180,9 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
 
     #close the current session and drop all saved variable values. --MAKE SURE TO SAVE FIRST--
     sess.close()
+    return (test_acc, prec)
 
 if __name__ == '__main__':
     with Pool(32) as p:
-        p.starmap(run, [('test', 3, [64, 64, 32], 128, tf.train.AdamOptimizer, 0.001 , 0.4)])
-
+        output = p.starmap(run, [('test', 3, [64, 64, 32], 128, tf.train.AdamOptimizer, 0.001 , 0.4)])
+    print(output)
