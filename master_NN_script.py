@@ -108,6 +108,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     best_val_acc = 0
     acc_decreased = False
     acc_decrease_threshold = 0.1
+    train_accuracy = []
 
     while epoch < max_num_epochs:
         total_loss = 0
@@ -122,6 +123,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
 	        total_loss += batch_loss
 	        total_acc += acc
 	        total_prec += prec[0]
+        train_accuracy.append(total_acc / num_batches)
         print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
 	    #test validation accuracy every 10 epoch
         if epoch % 5 == 0 and epoch != 0:
@@ -140,7 +142,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
         epoch += 1;
 
     #test the model on test data that was take from result.csv 
-    test_acc, predictions, prec, recc = sess.run([accuracy, prediction, precision, recall], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
+    test_acc, predictions, prec, recc, prob = sess.run([accuracy, prediction, precision, recall, probabilities], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
     print("Test Accuracy: {0}, Precision: {1}, Recall: {2}".format(test_acc, prec, recc))
 
 
@@ -152,6 +154,11 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
         os.makedirs("searched_models/model{0}/".format(model_number))
     except FileExistsError:
         pass
+    train_accuracy = str(["Train Accuracy: "] +  train_accuracy)
+    test_accuracy = "Test Accuracy: " + str(test_acc)
+    with open("searched_models/models{0}/model{0}_evaluation.txt".format(model_number)) as file:
+        file.writelines([train_accuracy, test_accuracy, "Training Labels: " + str(y_tr), "Output Probabilities: " + str(prob)])
+    
     save_path = saver.save(sess, "searched_models/model{0}/model{0}.ckpt".format(model_number))
     print("Model saved in path: %s" % save_path)
 
@@ -161,7 +168,12 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     return (test_acc, prec)
 
 def extract(rows):
-	return True
+    hyperparams = []
+    for row in rows.iterrows():
+        obj = row[1]
+        temp = [int(obj['model_number']), int(obj['number_layers'], eval(obj['layer_nodes']), int(obj['batch_size']), eval(obj['optimizer']), float(obj['learning_rate']), float(obj['dropout'])]
+        hyperparams.append(tuple(temp))
+    return hyperparams
 
 if __name__ == '__main__':
     chunksize = 32
@@ -171,3 +183,6 @@ if __name__ == '__main__':
         with Pool(32) as p:
             output = p.starmap(run, hyperparameters)
         print(output)
+
+
+
