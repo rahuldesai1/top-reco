@@ -99,17 +99,17 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
     recall = tf.metrics.recall(labels=actual, predictions=prediction)
 
     #add values to tensorboard
-    tf.summary.scalar(accuracy)
-    tf.summary.scalar(precision)
-    tf.summary.scalar(recall)
-    tf.summary.scalar(loss)
+    #tf.summary.scalar("Accuracy", accuracy)
+    #tf.summary.scalar("Precision", precision)
+    #tf.summary.scalar("Recall", recall)
+    #tf.summary.scalar("Loss", loss)
 
-    summary_op = tf.summary.merge_all()
+    #summary_op = tf.summary.merge_all()
     #create the session
     sess = tf.InteractiveSession()
     sess.run(tf.group(tf.global_variables_initializer(), tf.local_variables_initializer()))
     saver = tf.train.Saver()
-    writer = tf.summary.FileWriter('logs/train', graph=tf.get_default_graph())
+    #writer = tf.summary.FileWriter('logs/train', graph=tf.get_default_graph())
 
     #run the model on the input data and calculate/print validation and training accuracy for each epoch
     epoch = 0
@@ -123,16 +123,16 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
         total_acc = 0
         total_prec = 0
         for batch in range(num_batches):
-	        index = batch * batch_size
-	        last = index + batch_size
-	        #training
-	        X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-	        _, batch_loss, acc, prec, summ = sess.run([optimizer, loss, accuracy, precision, summary_op], feed_dict={X_tr: X_batch, y_tr: y_batch})
-	        total_loss += batch_loss
-	        total_acc += acc
-	        total_prec += prec[0]
-                writer.add_summary(summ, epoch*num_batches + batch)
-        train_accuracy.append(total_acc / num_batches)
+            index = batch * batch_size
+            last = index + batch_size
+            #training
+            X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
+            _, batch_loss, acc, prec = sess.run([optimizer, loss, accuracy, precision], feed_dict={X_tr: X_batch, y_tr: y_batch})
+            total_loss += batch_loss
+            total_acc += acc
+            total_prec += prec[0]
+            #writer.add_summary(summ, epoch * num_batches + batch)
+            train_accuracy.append(total_acc / num_batches)
         print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
 	    #test validation accuracy every 10 epoch
         if epoch % 5 == 0 and epoch != 0:
@@ -165,7 +165,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
         pass
     train_accuracy = str(["Train Accuracy: "] +  train_accuracy)
     test_accuracy = "Test Accuracy: " + str(test_acc)
-    with open("searched_models/models{0}/model{0}_evaluation.txt".format(model_number)) as file:
+    with open("searched_models/model{0}/model{0}_evaluation.txt".format(model_number), "w") as file:
         file.writelines([train_accuracy, test_accuracy, "Training Labels: " + str(y_tr), "Output Probabilities: " + str(prob)])
     
     save_path = saver.save(sess, "searched_models/model{0}/model{0}.ckpt".format(model_number))
@@ -180,18 +180,17 @@ def extract(rows):
     hyperparams = []
     for row in rows.iterrows():
         obj = row[1]
-        temp = [int(obj['model_number']), int(obj['number_layers'], eval(obj['layer_nodes']), int(obj['batch_size']), eval(obj['optimizer']), float(obj['learning_rate']), float(obj['dropout'])]
+        temp = [int(obj['model_number']), int(obj['number_layers']), eval(obj['layer_nodes']), int(obj['batch_size']), eval(obj['optimizer']), float(obj['learning_rate']), float(obj['dropout'])]
         hyperparams.append(tuple(temp))
     return hyperparams
 
 if __name__ == '__main__':
-    chunksize = 32
-    for chunk in pd.read_csv('~/projects/hyperparameters.csv', chunksize=chunksize):
+    #for chunk in pd.read_csv('~/projects/hyperparameters.csv', chunksize=chunksize):
         #return the hyperparameters for each chunk as a list of tuples
-        hyperparams = extract(chunk)
-        with Pool(32) as p:
-            output = p.starmap(run, hyperparameters)
-        print(output)
+       # hyperparams = extract(chunk)
+    with Pool(32) as p:
+        #output = p.starmap(run, hyperparameters)
+        p.starmap(run, [('test_1', 3, [64, 64, 32], 128, tf.train.AdamOptimizer, 0.01, 0.4)])
 
 
 
