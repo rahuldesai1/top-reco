@@ -132,7 +132,7 @@ def run(model_number, number_layers, layer_nodes, input_batch_size, optim, input
             total_acc += acc
             total_prec += prec[0]
             #writer.add_summary(summ, epoch * num_batches + batch)
-        train_accuracy.append(total_acc / num_batches)
+            train_accuracy.append(total_acc / num_batches)
         print("Epoch {0} ==> Acc: {1}, Precision: {2} , Loss: {3}".format(epoch, total_acc / num_batches, total_prec/float(num_batches),  total_loss))
 	    #test validation accuracy every 10 epoch
         if epoch % 5 == 0 and epoch != 0:

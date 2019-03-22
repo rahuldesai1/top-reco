@@ -30,8 +30,8 @@ neg_class.shape
 final_df = pd.concat([neg_class, pos_class])
 
 #dataframe preprocessing
-y = df['label']
-X = df.drop('label', axis=1).drop('rndm', axis=1)
+y = final_df['label']
+X = final_df.drop('label', axis=1).drop('Unnamed: 0', axis=1)
 
 #data normalization
 def normalize(col):

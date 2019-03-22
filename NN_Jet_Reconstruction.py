@@ -6,7 +6,6 @@ from sklearn.preprocessing import Normalizer
 import keras
 import sys
 
-model_number = sys.argv[1]
 print("Model Number: {0}".format(model_number))
 # Use header to load my csv file with variable names
 header = ['label','rndm','weight']
@@ -25,14 +24,14 @@ header += ['t_pt','t_eta','t_phi','t_E','t_m']
 header += ['btag1', 'btag2', 'btag3'] #binary representation of likelihood of the jet being an actual bjet
 
 #df = pd.read_csv('~/projects/top-reco-tests/samples/result.csv', names=header, delimiter=' ', skiprows=1)
-df = pd.read_csv('~/projects/top-reco-tests/samples/norm_results_0.1.csv', delimiter=',')
+df = pd.read_csv('~/projects/samples/norm_results.csv', delimiter=',')
 
 #down-sample the class of non-jet samples to 1/4 of the original size (prevents model bias towards to majority class)
-#pos_class = df[df['label'] == 1]
-#neg_class = df[df['label'] == 0]
-#neg_class = neg_class.sample(frac=0.1)
-#neg_class.shape
-#final_df = pd.concat([neg_class, pos_class])
+pos_class = df[df['label'] == 1]
+neg_class = df[df['label'] == 0]
+neg_class = neg_class.sample(frac=0.1)
+neg_class.shape
+final_df = pd.concat([neg_class, pos_class])
 
 #dataframe preprocessing
 y = df['label']
