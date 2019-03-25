@@ -5,6 +5,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import Normalizer
 import keras
 import sys
+import os
+from operator import itemgetter
 
 sample_frac = float(sys.argv[1])
 number_layers = int(sys.argv[2])
@@ -47,8 +49,8 @@ layer_nodes.append(32)
 n_out = 2
 
 #Create placeholders for the input data
-X_tr = tf.placeholder(tf.float32, shape=[None, n_features])
-y_tr = tf.placeholder(tf.float32, shape=[None, 2])
+X_tr = tf.placeholder(tf.float32, shape=[None, n_features], name="X_tr")
+y_tr = tf.placeholder(tf.float32, shape=[None, 2], name="y_tr")
 
 #Build the graph
 layers = []
@@ -56,40 +58,37 @@ layers = []
 for _ in range(number_layers):
     layers.append(0)
 
-def make_hidden(n_nodes_in, n_nodes_out):
-    W = tf.Variable(tf.truncated_normal([n_nodes_in, n_nodes_out], stddev=0.1))
-    b = tf.Variable(tf.constant(0.1, shape=[1, n_nodes_out]))
+def make_hidden(n_nodes_in, n_nodes_out, num):
+    W = tf.Variable(tf.truncated_normal([n_nodes_in, n_nodes_out], stddev=0.1), name="W"+num)
+    b = tf.Variable(tf.constant(0.1, shape=[1, n_nodes_out]), name="b"+num)
     return {'weight': W, 'bias': b}
 
 #Create placeholders for the input data
-X_tr = tf.placeholder(tf.float32, shape=[None, n_features])
-y_tr = tf.placeholder(tf.float32, shape=[None, 2])
-
-layer_1 = make_hidden(n_features, layer_nodes[0])
+layer_1 = make_hidden(n_features, layer_nodes[0], "0")
 layer_1 = tf.nn.relu(tf.matmul(X_tr, layer_1['weight']) + layer_1['bias'])
 layers[0] = tf.layers.dropout(layer_1, dropout)
 
 for i in range(1, number_layers):
-    hidden_layer = make_hidden(layer_nodes[i - 1], layer_nodes[i])
+    hidden_layer = make_hidden(layer_nodes[i - 1], layer_nodes[i], str(i))
     layers[i] = tf.nn.relu(tf.matmul(layers[i - 1], hidden_layer['weight']) + hidden_layer['bias'])
 
-W_out = make_hidden(layer_nodes[-1], n_out)
+W_out = make_hidden(layer_nodes[-1], n_out, str(number_layers))
 logits = tf.matmul(layers[-1], W_out['weight']) + W_out['bias']
 
 if loss_func == "weighted":
     entropy = tf.nn.weighted_cross_entropy_with_logits(targets=y_tr, logits=logits, pos_weight=2.0)
 else:
     entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=logits)
-loss = tf.reduce_mean(entropy)
-optimizer = optim(learning_rate=learning_rate).minimize(loss)
+loss = tf.reduce_mean(entropy, name="Loss")
+optimizer = optim(learning_rate=learning_rate, name="Optimizer").minimize(loss)
 
 #compute the accuracy using Area Under Curve -- this gives us a better metric for imbalanced datasets
-probabilities = tf.nn.softmax(logits)
-prediction = tf.cast(tf.argmax(probabilities, axis=1), tf.float32)
-actual = tf.cast(tf.argmax(y_tr, axis=1), tf.float32)
-accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, actual), tf.float32))
-precision = tf.metrics.precision(labels=actual, predictions=prediction)
-recall = tf.metrics.recall(labels=actual, predictions=prediction)
+probabilities = tf.nn.softmax(logits, name="Probabilities")
+prediction = tf.cast(tf.argmax(probabilities, axis=1), tf.float32, name="Predictions")
+actual = tf.cast(tf.argmax(y_tr, axis=1), tf.float32, name="groundTruth")
+accuracy = tf.reduce_mean(tf.cast(tf.equal(prediction, actual), tf.float32), name="Accuracy")
+precision = tf.metrics.precision(labels=actual, predictions=prediction, name="Precision")
+recall = tf.metrics.recall(labels=actual, predictions=prediction, name="Recall")
 
 #create the session
 sess = tf.InteractiveSession()
@@ -101,7 +100,8 @@ epoch = 0
 best_val_acc = 0
 acc_decreased = False
 acc_decrease_threshold = 0.1
-training_accuracy = []
+training_precision = []
+training_recall = []
 
 while epoch < max_num_epochs:
     total_loss = 0
@@ -116,9 +116,10 @@ while epoch < max_num_epochs:
         _, batch_loss, acc, prec, recc = sess.run([optimizer, loss, accuracy, precision, recall], feed_dict={X_tr: X_batch, y_tr: y_batch})
         total_loss += batch_loss
         total_acc += acc
-        total_prec += prec[0]
-        total_recc += recc[0]
-    training_accuracy.append(total_acc / num_batches)
+        total_prec += prec[1]
+        total_recc += recc[1]
+    training_precision.append(total_prec / float(num_batches))
+    training_recall.append(total_recc / float(num_batches))
     print("Epoch {0} ==> Acc: {1}, Precision: {2}, Recall: {3}, Loss: {4}".format(epoch, total_acc / num_batches, total_prec/float(num_batches), total_recc/float(num_batches), total_loss))
     #test validation accuracy every 10 epochs
     if epoch % 5 == 0 and epoch != 0:
@@ -145,19 +146,23 @@ print("Test Accuracy: {0}, Precision: {1}, Recall: {2}".format(test_acc, prec, r
 print("Percent classified as a triplet: {0}".format(sum(predictions) / X_test.shape[0]))
 print(sum(predictions))
 
-model_number = "SF:{0}_layers{1}_BS{2}_LR{3}_OP{4}_LS{5}_DO{6}".format(sample_frac, number_layers, batch_size, learning_rate, optim, loss_func, dropout)
+model_number = "PRECISION:{7}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_OP:{4}_LS:{5}_DO:{6}".format(sample_frac, number_layers, batch_size, learning_rate, sys.argv[4][9:], loss_func, dropout, prec[1])
 #save the model
 try:
     os.makedirs("searched_models/{0}/".format(model_number)) 
 except FileExistsError:
     pass
 
-train_accuracy = "Train Accuracy: " + str(train_accuracy)
-test_accuracy = "Test Accuracy: " + str(test_acc)
+hypers = model_number + "\n"
+training_accuracy = list(zip(training_precision, training_recall))
+train_eval = "Train (Precision, Recall): " + str(training_accuracy) + "\n"
+test_acc = (prec, recc)
+test_eval = "Test (Precision, Recall): " + str(test_acc) + "\n"
+df_pred = pd.DataFrame(data={'actual': y_test.values, 'neg_predictions': list(map(itemgetter(0), prob)), 'pos_predictions': list(map(itemgetter(1), prob))}).to_string()
 with open("searched_models/{0}/model_evaluation.txt".format(model_number), "w") as file:
-    file.writelines([train_accuracy, test_accuracy, "Training Labels: " + str(y_tr), "Output Probabilities: " + str(prob)])
+    file.writelines([hypers, train_eval, test_eval, "Predictions: " + df_pred])
     
-save_path = saver.save(sess, "searched_models/{0}/model.ckpt".format(model_number))
+save_path = saver.save(sess, "searched_models/{0}/model".format(model_number))
 print("Model saved in path: %s" % save_path)
 
 #close the current session and drop all saved variable values. --MAKE SURE TO SAVE FIRST--

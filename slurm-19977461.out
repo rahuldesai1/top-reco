@@ -1,0 +1,3 @@
+/global/homes/r/rahuld/projects
+mkdir: cannot create directory '/global/homes/r/rahuld/projects/run': File exists
+2019-03-24 23:03:36.287903: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA

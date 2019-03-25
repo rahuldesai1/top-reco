@@ -1,0 +1,14 @@
+/global/homes/r/rahuld/projects
+mkdir: cannot create directory '/global/homes/r/rahuld/projects/run': File exists
+rm: cannot remove 'progress.txt': No such file or directory
+2019-03-24 22:54:08.060211: I tensorflow/core/platform/cpu_feature_guard.cc:141] Your CPU supports instructions that this TensorFlow binary was not compiled to use: AVX2 FMA
+Using TensorFlow backend.
+Percent of positive class in the training set: 0.07233346288125464
+Traceback (most recent call last):
+  File "/global/homes/r/rahuld/projects/train.py", line 116, in <module>
+    _, batch_loss, acc, prec, recc = sess.run([optimizer, loss, accuracy, precision, recall], feed_dict={X_tr: X_batch, y_tr: y_batch})
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 877, in run
+    run_metadata_ptr)
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/tensorflow/python/client/session.py", line 1076, in _run
+    str(subfeed_t.get_shape())))
+ValueError: Cannot feed value of shape (128, 1) for Tensor 'y_tr:0', which has shape '(?, 2)'
