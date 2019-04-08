@@ -26,8 +26,9 @@ neg_class.shape
 final_df = pd.concat([neg_class, pos_class])
 
 #dataframe preprocessing
-y = df['label']
-X_norm = df.drop('label', axis=1).drop('Unnamed: 0', axis=1)
+y = final_df['label']
+final_df = final_df.drop('weight', axis=1)
+X_norm = final_df.drop('label', axis=1).drop('Unnamed: 0', axis=1)
 
 #Randomly split the data for training and testing using sklearn's train_test_split method
 X_train, X_test, y_train, y_test = train_test_split(X_norm, y, test_size=.15, shuffle=True)
@@ -65,18 +66,23 @@ def make_hidden(n_nodes_in, n_nodes_out, num):
 
 #Create placeholders for the input data
 layer_1 = make_hidden(n_features, layer_nodes[0], "0")
-layer_1 = tf.nn.relu(tf.matmul(X_tr, layer_1['weight']) + layer_1['bias'])
-layers[0] = tf.layers.dropout(layer_1, dropout)
+layers[0] = tf.nn.relu(tf.matmul(X_tr, layer_1['weight']) + layer_1['bias'])
 
-for i in range(1, number_layers):
+for i in range(1, number_layers - 1):
     hidden_layer = make_hidden(layer_nodes[i - 1], layer_nodes[i], str(i))
-    layers[i] = tf.nn.relu(tf.matmul(layers[i - 1], hidden_layer['weight']) + hidden_layer['bias'])
+    active_layer = tf.nn.relu(tf.matmul(layers[i - 1], hidden_layer['weight']) + hidden_layer['bias'])
+    layers[i] = tf.layers.dropout(active_layer, dropout)
+
+hidden_last = make_hidden(layer_nodes[number_layers - 2], layer_nodes[number_layers - 1], str(number_layers - 1))
+layers[number_layers - 1] = tf.nn.relu(tf.matmul(layers[number_layers - 2], hidden_last['weight']) + hidden_last['bias'])
 
 W_out = make_hidden(layer_nodes[-1], n_out, str(number_layers))
 logits = tf.matmul(layers[-1], W_out['weight']) + W_out['bias']
 
 if loss_func == "weighted":
-    entropy = tf.nn.weighted_cross_entropy_with_logits(targets=y_tr, logits=logits, pos_weight=2.0)
+    class_weights = tf.constant([0.1, 2])
+    weighted_logits = tf.multiply(logits, class_weights)
+    entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=weighted_logits)
 else:
     entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=logits)
 loss = tf.reduce_mean(entropy, name="Loss")
@@ -149,7 +155,7 @@ print(sum(predictions))
 model_number = "PRECISION:{7}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_OP:{4}_LS:{5}_DO:{6}".format(sample_frac, number_layers, batch_size, learning_rate, sys.argv[4][9:], loss_func, dropout, prec[1])
 #save the model
 try:
-    os.makedirs("searched_models/{0}/".format(model_number)) 
+    os.makedirs("~/projects/searched_models/{0}/".format(model_number)) 
 except FileExistsError:
     pass
 
@@ -159,7 +165,7 @@ train_eval = "Train (Precision, Recall): " + str(training_accuracy) + "\n"
 test_acc = (prec, recc)
 test_eval = "Test (Precision, Recall): " + str(test_acc) + "\n"
 df_pred = pd.DataFrame(data={'actual': y_test.values, 'neg_predictions': list(map(itemgetter(0), prob)), 'pos_predictions': list(map(itemgetter(1), prob))}).to_string()
-with open("searched_models/{0}/model_evaluation.txt".format(model_number), "w") as file:
+with open("~/projects/searched_models/{0}/model_evaluation.txt".format(model_number), "w") as file:
     file.writelines([hypers, train_eval, test_eval, "Predictions: " + df_pred])
     
 save_path = saver.save(sess, "searched_models/{0}/model".format(model_number))
