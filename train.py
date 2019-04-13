@@ -38,7 +38,7 @@ X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=.1
 print("Percent of positive class in the training set: {0}".format(sum(y_train == 1) / (sum(y_train == 1) + sum(y_train == 0))))
 
 #Hyper-parameters
-max_num_epochs = 35
+max_num_epochs = 1
 num_batches = int(len(X_train) / batch_size)
 
 #Network Paramters
@@ -52,6 +52,7 @@ n_out = 2
 #Create placeholders for the input data
 X_tr = tf.placeholder(tf.float32, shape=[None, n_features], name="X_tr")
 y_tr = tf.placeholder(tf.float32, shape=[None, 2], name="y_tr")
+threshold = tf.placeholder(tf.float32, shape=(), name="thresh")
 
 #Build the graph
 layers = []
@@ -116,13 +117,17 @@ while epoch < max_num_epochs:
     total_loss = 0
     total_se = 0
     total_ba = 0
+    shuffled = pd.concat([X_train, y_train], axis=1)
+    shuffled = shuffled.sample(frac=1)
+    y_train = shuffled['label']
+    X_train = shuffled.drop('label', axis=1)
 
     for batch in range(num_batches):
         index = batch * batch_size
         last = index + batch_size
         #training
         X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-        _, batch_loss, signal, back = sess.run([optimizer, loss, signalEff, backgroundAccept], feed_dict={X_tr: X_batch, y_tr: y_batch})
+        _, batch_loss, signal, back = sess.run([optimizer, loss, signalEff, backgroundAccept], feed_dict={X_tr: X_batch, y_tr: y_batch, threshold: 0.5})
         total_loss += batch_loss
         total_se += signal
         total_ba += back
@@ -130,8 +135,8 @@ while epoch < max_num_epochs:
     training_ba.append(total_ba / float(num_batches))
     print("Epoch {0} ==> Signal Efficiency: {1}, Background Acceptance: {2}, Loss: {3}".format(epoch, total_se / num_batches, total_ba / num_batches, total_loss))
     #test validation accuracy every 10 epochs
-    if epoch % 10 == 0 and epoch != 0:
-        val_se, val_ba  = sess.run([precision, recall], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val)})
+    if epoch % 3 == 0 and epoch != 0:
+        val_se, val_ba  = sess.run([signalEff, backgroundAccept], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val), threshold: 0.5})
         print("Validation Signal Efficiency: {0}, Validation Background Acceptance: {1}".format(val_se, val_ba))
         
         #implement early stopping
@@ -146,13 +151,26 @@ while epoch < max_num_epochs:
         
     epoch += 1;
 
+test_thresh = []
 #test the model on test data that was take from result.csv 
-predictions, test_se, test_ba, prob = sess.run([prediction, signalEff, backgroundAccept, probabilities], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test)})
+predictions, test_se, test_ba, prob = sess.run([prediction, signalEff, backgroundAccept, probabilities], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test), threshold: 0.5})
 print("Test Signal Efficiency: {0}, Test Background Acceptance: {1}".format(test_se, test_ba))
 
-#Print out the percent of values that were classified as tripets in the test set 
-print("Percent classified as a triplet: {0}".format(sum(predictions) / X_test.shape[0]))
+print("Testing Various Threshold Values")
 
+for t in np.arange(0.1, 1, 0.1):
+    prediction = np.multiply((prob >= t)[:, 1], 1)
+
+    TP = np.count_nonzero(prediction * y_test)
+    TN = np.count_nonzero((prediction - 1) * (y_test - 1))
+    FP = np.count_nonzero(prediction * (y_test - 1))
+    FN = np.count_nonzero((prediction - 1) * y_test)
+    signalEff = TP / (TP + FN)
+    backgroundAccept = FP / (TN + FP)
+
+    test_thresh.append((t, signalEff, backgroundAccept))
+print(test_thresh)
+#Print out the percent of values that were classified as tripets in the test set 
 model_number = "SIGNAL_EFF:{7}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_OP:{4}_LS:{5}_DO:{6}".format(sample_frac, number_layers, batch_size, learning_rate, sys.argv[4][9:], loss_func, dropout, test_se)
 #save the model
 try:
@@ -162,12 +180,13 @@ except FileExistsError:
 
 hypers = model_number + "\n"
 training_accuracy = list(zip(training_se, training_ba))
-train_eval = "Train (Precision, Recall): " + str(training_accuracy) + "\n"
-test_acc = (test_se, test_ba)
-test_eval = "Test (Precision, Recall): " + str(test_acc) + "\n"
+train_eval = "Train (Signal Efficiency, Background Acceptance): " + str(training_accuracy) + "\n"
+test_acc = test_thresh
+test_eval = "Test (Threshold, Signal Efficiency, Background Acceptance): " + str(test_acc) + "\n"
 df_pred = pd.DataFrame(data={'actual': y_test.values, 'neg_predictions': list(map(itemgetter(0), prob)), 'pos_predictions': list(map(itemgetter(1), prob))}).to_string()
 
 with open("~/projects/searched_models/{0}/model_evaluation.txt".format(model_number), "w") as file:
+    print("Writing model metrics to model_evaluation.txt")
     file.writelines([hypers, train_eval, test_eval, "Predictions: " + df_pred])
     
 save_path = saver.save(sess, "searched_models/{0}/model".format(model_number))
