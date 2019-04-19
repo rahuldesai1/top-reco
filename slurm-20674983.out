@@ -1,0 +1,33 @@
+mkdir: cannot create directory 'run': File exists
+/global/homes/r/rahuld/projects/run/0.38256tf.train.AdamOptimizer0.1weighted0.4
+Data.ipynb
+NN_Jet_Reconstruction.ipynb
+NN_Jet_Reconstruction.py
+classifier
+data.py
+master_NN_script.py
+run
+searched_models
+slurm-20674983.out
+test.py
+test_models
+test_train.py
+train.py
+train.sh
+Using TensorFlow backend.
+Traceback (most recent call last):
+  File "/global/homes/r/rahuld/projects/train.py", line 21, in <module>
+    df = pd.read_csv('/global/homes/r/rahuld/projects/samples/norm_results.csv', delimiter=',')
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/pandas/io/parsers.py", line 702, in parser_f
+    return _read(filepath_or_buffer, kwds)
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/pandas/io/parsers.py", line 429, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/pandas/io/parsers.py", line 895, in __init__
+    self._make_engine(self.engine)
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/pandas/io/parsers.py", line 1122, in _make_engine
+    self._engine = CParserWrapper(self.f, **self.options)
+  File "/global/homes/r/rahuld/miniconda2/envs/py3.6/lib/python3.6/site-packages/pandas/io/parsers.py", line 1853, in __init__
+    self._reader = parsers.TextReader(src, **kwds)
+  File "pandas/_libs/parsers.pyx", line 387, in pandas._libs.parsers.TextReader.__cinit__
+  File "pandas/_libs/parsers.pyx", line 705, in pandas._libs.parsers.TextReader._setup_parser_source
+FileNotFoundError: [Errno 2] File b'/global/homes/r/rahuld/projects/samples/norm_results.csv' does not exist: b'/global/homes/r/rahuld/projects/samples/norm_results.csv'

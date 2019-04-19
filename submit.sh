@@ -19,7 +19,7 @@ loss[2]="un_weighted"
 dr[1]=0.4
 dr[2]=0.3
 
-for layers in `seq 8 8`
+for layers in `seq 7 7`
 do
     for i in `seq 1 1`
     do
@@ -48,3 +48,4 @@ do
     done
     done
 done
+

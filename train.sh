@@ -24,11 +24,11 @@ echo $PWD
 
 rm -f progress.txt
 echo "1--setup" >> progress.txt
-source /global/homes/r/rahuld/projects/miniconda2/bin/activate py3.6
-
+source /global/homes/r/rahuld/miniconda2/bin/activate py3.6
+ls /global/homes/r/rahuld/projects
 # Do the training
 echo "2--begin train" >> progress.txt
-ls ~/projects/train.py
+chmod +x /global/homes/r/rahuld/projects/train.py
 python3 /global/homes/r/rahuld/projects/train.py $hyp1 $hyp2 $hyp3 $hyp4 $hyp5 $hyp6 $hyp7
 echo "3--end train" >> progress.txt
 conda deactivate

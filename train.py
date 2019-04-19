@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import tensorflow as tf
 import pandas as pd
 import numpy as np
@@ -16,7 +18,7 @@ learning_rate = float(sys.argv[5])
 loss_func = sys.argv[6]
 dropout = float(sys.argv[7])
 
-df = pd.read_csv('~/projects/samples/norm_results.csv', delimiter=',')
+df = pd.read_csv('/global/homes/r/rahuld/projects/samples/norm_results.csv', delimiter=',')
 
 #down-sample the class of non-jet samples to 1/4 of the original size (prevents model bias towards to majority class)
 pos_class = df[df['label'] == 1]
@@ -38,7 +40,7 @@ X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=.1
 print("Percent of positive class in the training set: {0}".format(sum(y_train == 1) / (sum(y_train == 1) + sum(y_train == 0))))
 
 #Hyper-parameters
-max_num_epochs = 1
+max_num_epochs = 35
 num_batches = int(len(X_train) / batch_size)
 
 #Network Paramters
@@ -174,7 +176,7 @@ print(test_thresh)
 model_number = "SIGNAL_EFF:{7}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_OP:{4}_LS:{5}_DO:{6}".format(sample_frac, number_layers, batch_size, learning_rate, sys.argv[4][9:], loss_func, dropout, test_se)
 #save the model
 try:
-    os.makedirs("~/projects/searched_models/{0}/".format(model_number)) 
+    os.makedirs("/global/homes/r/rahuld/projects/searched_models/{0}/".format(model_number)) 
 except FileExistsError:
     pass
 
@@ -185,11 +187,11 @@ test_acc = test_thresh
 test_eval = "Test (Threshold, Signal Efficiency, Background Acceptance): " + str(test_acc) + "\n"
 df_pred = pd.DataFrame(data={'actual': y_test.values, 'neg_predictions': list(map(itemgetter(0), prob)), 'pos_predictions': list(map(itemgetter(1), prob))}).to_string()
 
-with open("~/projects/searched_models/{0}/model_evaluation.txt".format(model_number), "w") as file:
+with open("/global/homes/r/rahuld/projects/searched_models/{0}/model_evaluation.txt".format(model_number), "w+") as file:
     print("Writing model metrics to model_evaluation.txt")
     file.writelines([hypers, train_eval, test_eval, "Predictions: " + df_pred])
     
-save_path = saver.save(sess, "searched_models/{0}/model".format(model_number))
+save_path = saver.save(sess, "/global/homes/r/rahuld/projects/searched_models/{0}/model".format(model_number))
 print("Model saved in path: %s" % save_path)
 
 #close the current session and drop all saved variable values. --MAKE SURE TO SAVE FIRST--
