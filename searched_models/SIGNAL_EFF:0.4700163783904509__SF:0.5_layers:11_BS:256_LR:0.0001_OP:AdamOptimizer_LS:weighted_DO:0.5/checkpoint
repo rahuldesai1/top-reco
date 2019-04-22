@@ -1,2 +1,0 @@
-model_checkpoint_path: "/global/homes/r/rahuld/projects/searched_models/SIGNAL_EFF:0.4700163783904509__SF:0.5_layers:11_BS:256_LR:0.0001_OP:AdamOptimizer_LS:weighted_DO:0.5/model"
-all_model_checkpoint_paths: "/global/homes/r/rahuld/projects/searched_models/SIGNAL_EFF:0.4700163783904509__SF:0.5_layers:11_BS:256_LR:0.0001_OP:AdamOptimizer_LS:weighted_DO:0.5/model"

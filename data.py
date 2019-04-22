@@ -56,5 +56,5 @@ X_norm = X.apply(normalize, axis=0)
 
 print(X_norm.head())
 normalized = pd.concat([y, X_norm], axis=1)
-normalized.to_csv('~/projects/samples/results_norm_{0}.csv'.format(frac), sep=',') 
+normalized.to_csv('~/projects/samples/norm_results.csv'.format(frac), sep=',') 
 normalization_data.to_csv('~/projects/samples/scaler_data.csv', sep=',')

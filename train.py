@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import tensorflow as tf
 import pandas as pd
@@ -160,7 +160,7 @@ print("Test Signal Efficiency: {0}, Test Background Acceptance: {1}".format(test
 
 print("Testing Various Threshold Values")
 
-for t in np.arange(0.1, 1, 0.1):
+for t in np.arange(0, 1, 0.01):
     prediction = np.multiply((prob >= t)[:, 1], 1)
 
     TP = np.count_nonzero(prediction * y_test)

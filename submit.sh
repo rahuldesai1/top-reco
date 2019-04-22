@@ -1,23 +1,22 @@
 #!/bin/bash
 
-frac[1]=0.3
+frac[1]=0.4
 frac[2]=0.5
+frac[3]=0.6
 
 bs[1]=256
 bs[2]=512
 
-lr[1]=0.1
-lr[2]=0.01
-lr[3]=0.001
+lr[1]=0.01
+lr[2]=0.001
+lr[3]=0.0001
 
 opt[1]="tf.train.AdamOptimizer"
-opt[2]="tf.train.RMSPropOptimizer"
 
 loss[1]="weighted"
-loss[2]="un_weighted"
 
 dr[1]=0.4
-dr[2]=0.3
+dr[2]=0.5
 
 for layers in `seq 7 7`
 do
