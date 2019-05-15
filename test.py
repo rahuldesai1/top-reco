@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import sys
 import keras
+import numpy as np
 
 print("Loading Data...")
 normalizer = pd.read_csv("~/projects/samples/scaler_data.csv", delimiter=',')
@@ -22,8 +23,10 @@ def normalize(col):
             return 0 + slopeLower * (row - mini)
     return col.apply(norm_helper)
 
-X_test = data.sample(frac=0.2)
+#data = pd.read_csv('~/projects/samples/norm_results.csv', delimiter=",")
+X_test = data.sample(frac=0.3)
 y = X_test['label']
+#X_norm = X_test.drop("label", axis=1).drop("rndm", axis=1, errors='ignore').drop("weight", axis=1).drop('Unnamed: 0', axis=1, errors='ignore')
 X_test = X_test.drop('label', axis=1).drop("rndm", axis=1).drop("weight", axis=1).drop("Unnamed: 43", axis=1)
 X_norm = X_test.apply(normalize, axis=0)
 print(X_norm.head())
@@ -35,25 +38,28 @@ saver.restore(sess, "searched_models/model_1/model")
 print("Model Restored")
 
 graph = tf.get_default_graph()
+
 X_tr = graph.get_tensor_by_name('X_tr:0')
 y_tr = graph.get_tensor_by_name('y_tr:0')
 thresh = graph.get_tensor_by_name('thresh:0')
 
-prob = graph.get_operation_by_name("Probabilities:0")
-prediction = tf.cast(np.multiply((prob >= thresh)[:, 1], 1), tf.float32)
-actual = tf.cast(tf.argmax(y_tr, axis=1), tf.float32, name="groundTruth")
-TP = tf.count_nonzero(prediction * actual)
-TN = tf.count_nonzero((prediction - 1) * (actual - 1))
-FP = tf.count_nonzero(prediction * (actual - 1))
-FN = tf.count_nonzero((prediction - 1) * actual)
-signalEff = TP / (TP + FN)
-backgroundAccept = FP / (TN + FP)
+prob = graph.get_tensor_by_name("Probabilities:0")
 
+#for op in graph.get_operations():
+   # print(str(op.name))
 
-sess.run(tf.global_variables_initializer())
-prec, recc = sess.run([signalEff, backgroundAccept], feed_dict={X_tr: X_norm.values, y_tr: tf.keras.utils.to_categorical(y), thresh: 0.5})
-print("SE: {0}, BA: {1}".format(prec, recc))
+probab = sess.run(prob, feed_dict={X_tr: X_norm.values, y_tr: tf.keras.utils.to_categorical(y), thresh: 0.5})
+print(probab)
+for t in np.arange(0, 1, 0.01):
+    prediction = np.multiply((probab >= t)[:, 1], 1)
 
-
+    TP = np.count_nonzero(prediction * y)
+    TN = np.count_nonzero((prediction - 1) * (y - 1))
+    FP = np.count_nonzero(prediction * (y - 1))
+    FN = np.count_nonzero((prediction - 1) * y)
+    
+    signalEff = TP / (TP + FN)
+    backgroundAccept = FP / (TN + FP)
+    print(str(signalEff) + ", " + str(backgroundAccept))
 
 

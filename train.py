@@ -15,8 +15,7 @@ number_layers = int(sys.argv[2])
 batch_size = int(sys.argv[3])
 optim = eval(sys.argv[4])
 learning_rate = float(sys.argv[5])
-loss_func = sys.argv[6]
-dropout = float(sys.argv[7])
+dropout = float(sys.argv[6])
 
 df = pd.read_csv('/global/homes/r/rahuld/projects/samples/norm_results.csv', delimiter=',')
 
@@ -55,7 +54,7 @@ n_out = 2
 X_tr = tf.placeholder(tf.float32, shape=[None, n_features], name="X_tr")
 y_tr = tf.placeholder(tf.float32, shape=[None, 2], name="y_tr")
 threshold = tf.placeholder(tf.float32, shape=(), name="thresh")
-
+drop_prob = tf.placeholder_with_default(0.0, shape=(), name="drop_prob")
 #Build the graph
 layers = []
 
@@ -82,12 +81,9 @@ layers[number_layers - 1] = tf.nn.relu(tf.matmul(layers[number_layers - 2], hidd
 W_out = make_hidden(layer_nodes[-1], n_out, str(number_layers))
 logits = tf.matmul(layers[-1], W_out['weight']) + W_out['bias']
 
-if loss_func == "weighted":
-    class_weights = tf.constant([0.1, 1.5])
-    weighted_logits = tf.multiply(logits, class_weights)
-    entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=weighted_logits)
-else:
-    entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=logits)
+class_weights = tf.constant([0.1, 1.5])
+weighted_logits = tf.multiply(logits, class_weights)
+entropy = tf.nn.softmax_cross_entropy_with_logits_v2(labels=y_tr, logits=weighted_logits)
 loss = tf.reduce_mean(entropy, name="Loss")
 optimizer = optim(learning_rate=learning_rate, name="Optimizer").minimize(loss)
 
@@ -129,7 +125,7 @@ while epoch < max_num_epochs:
         last = index + batch_size
         #training
         X_batch, y_batch = X_train.iloc[index:last].values, tf.keras.utils.to_categorical(y_train.iloc[index:last])
-        _, batch_loss, signal, back = sess.run([optimizer, loss, signalEff, backgroundAccept], feed_dict={X_tr: X_batch, y_tr: y_batch, threshold: 0.5})
+        _, batch_loss, signal, back = sess.run([optimizer, loss, signalEff, backgroundAccept], feed_dict={X_tr: X_batch, y_tr: y_batch, threshold: 0.5, drop_prob:dropout})
         total_loss += batch_loss
         total_se += signal
         total_ba += back
@@ -138,7 +134,7 @@ while epoch < max_num_epochs:
     print("Epoch {0} ==> Signal Efficiency: {1}, Background Acceptance: {2}, Loss: {3}".format(epoch, total_se / num_batches, total_ba / num_batches, total_loss))
     #test validation accuracy every 10 epochs
     if epoch % 3 == 0 and epoch != 0:
-        val_se, val_ba  = sess.run([signalEff, backgroundAccept], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val), threshold: 0.5})
+        val_se, val_ba  = sess.run([signalEff, backgroundAccept], feed_dict={X_tr: X_val.values, y_tr: tf.keras.utils.to_categorical(y_val), threshold: 0.5, drop_prob:0.0})
         print("Validation Signal Efficiency: {0}, Validation Background Acceptance: {1}".format(val_se, val_ba))
         
         #implement early stopping
@@ -155,12 +151,17 @@ while epoch < max_num_epochs:
 
 test_thresh = []
 #test the model on test data that was take from result.csv 
-predictions, test_se, test_ba, prob = sess.run([prediction, signalEff, backgroundAccept, probabilities], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test), threshold: 0.5})
+predictions, test_se, test_ba, prob = sess.run([prediction, signalEff, backgroundAccept, probabilities], feed_dict={X_tr: X_test.values, y_tr: tf.keras.utils.to_categorical(y_test), threshold: 0.5, drop_prob: 0.0})
 print("Test Signal Efficiency: {0}, Test Background Acceptance: {1}".format(test_se, test_ba))
 
 print("Testing Various Threshold Values")
 
+save_df = pd.DataFrame(columns=["HyperParameters", "Train_Results", "Test_Results", "Threshold Values"])
+final_dict = {}
+final_dict["Threshold Values"] = []
 for t in np.arange(0, 1, 0.01):
+    temp_dict = {}
+    temp_dict["Threshold"] = t
     prediction = np.multiply((prob >= t)[:, 1], 1)
 
     TP = np.count_nonzero(prediction * y_test)
@@ -169,11 +170,12 @@ for t in np.arange(0, 1, 0.01):
     FN = np.count_nonzero((prediction - 1) * y_test)
     signalEff = TP / (TP + FN)
     backgroundAccept = FP / (TN + FP)
+    temp_dict["Background Acceptance"] = backgroundAccept
+    temp_dict["Signal Efficiency"] = signalEff
+    final_dict["Threshold Values"].append(temp_dict)
 
-    test_thresh.append((t, signalEff, backgroundAccept))
-print(test_thresh)
 #Print out the percent of values that were classified as tripets in the test set 
-model_number = "SIGNAL_EFF:{7}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_OP:{4}_LS:{5}_DO:{6}".format(sample_frac, number_layers, batch_size, learning_rate, sys.argv[4][9:], loss_func, dropout, test_se)
+model_number = "SIGNAL_EFF:{5}__SF:{0}_layers:{1}_BS:{2}_LR:{3}_DO:{4}".format(sample_frac, number_layers, batch_size, learning_rate, dropout, test_se)
 #save the model
 try:
     os.makedirs("/global/homes/r/rahuld/projects/searched_models/{0}/".format(model_number)) 
@@ -182,14 +184,32 @@ except FileExistsError:
 
 hypers = model_number + "\n"
 training_accuracy = list(zip(training_se, training_ba))
-train_eval = "Train (Signal Efficiency, Background Acceptance): " + str(training_accuracy) + "\n"
-test_acc = test_thresh
-test_eval = "Test (Threshold, Signal Efficiency, Background Acceptance): " + str(test_acc) + "\n"
+final_dict["Train_Results"] = []
+count = 0
+for i in training_accuracy:
+    new_dict = {}
+    new_dict["Epoch"] = count
+    new_dict["Metrics"] = []
+    temp = {}
+    temp["Signal Efficiency"] = i[0]
+    temp["Background Acceptance"] = i[1]
+    new_dict["Metrics"].append(temp)
+    final_dict["Train_Results"].append(new_dict) 
+    count += 1
+count = 0
+
+final_dict["Test_Results"] = []
+final_dict["Test_Results"].append({"Signal Efficiency": test_se, "Background Acceptance": test_ba})
+final_dict["HyperParameters"] = []
+final_dict["HyperParameters"].append({"Layers":number_layers, "Batch Size": batch_size, "Learning Rate": learning_rate, "Optimizer": sys.arv[4][9:], "Dropout": dropout})
+save_df = save_df.append(final_dict, ignore_index=True)
+
+save_df.to_json("/global/homes/r/rahuld/projects/searched_models/{0}/model_metrics.json".format(model_number))
 df_pred = pd.DataFrame(data={'actual': y_test.values, 'neg_predictions': list(map(itemgetter(0), prob)), 'pos_predictions': list(map(itemgetter(1), prob))}).to_string()
 
-with open("/global/homes/r/rahuld/projects/searched_models/{0}/model_evaluation.txt".format(model_number), "w+") as file:
-    print("Writing model metrics to model_evaluation.txt")
-    file.writelines([hypers, train_eval, test_eval, "Predictions: " + df_pred])
+with open("/global/homes/r/rahuld/projects/searched_models/{0}/model_results.txt".format(model_number), "w+") as f:
+    print("Writing model metrics to model_results.txt")
+    f.writelines([df_pred])
     
 save_path = saver.save(sess, "/global/homes/r/rahuld/projects/searched_models/{0}/model".format(model_number))
 print("Model saved in path: %s" % save_path)
